@@ -2,7 +2,13 @@
 @section('title', 'Report flooding')
 
 @push('head')
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <base href="{{ asset('agos') }}/">
+    <style>
+        #pick { position: relative; height: 300px; border-radius: 16px; overflow: hidden; border: 1px solid var(--edge); }
+        /* A fixed pin in the middle: drag the map under it, like the app. */
+        #pick .center-pin { position: absolute; left: 50%; top: 50%; z-index: 3; width: 34px; height: 43px; margin: -43px 0 0 -17px; pointer-events: none;
+            filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .4)); }
+    </style>
 @endpush
 
 @section('content')
@@ -36,8 +42,8 @@
                 @endforeach
             </select>
 
-            <label>Where exactly? Tap the map</label>
-            <div id="pick"></div>
+            <label>Where exactly? Drag the map so the pin sits on the spot</label>
+            <div id="pick"><svg class="center-pin" viewBox="0 0 34 43"><path d="M17 42C14 34 1 29 1 17A16 16 0 1 1 33 17C33 29 20 34 17 42Z" fill="#0A84FF" stroke="#fff" stroke-width="2.2"/></svg></div>
             <input type="hidden" name="latitude" id="lat" value="{{ old('latitude') }}">
             <input type="hidden" name="longitude" id="lng" value="{{ old('longitude') }}">
             <p class="small muted" id="pickhint" style="margin:6px 0 0">No spot set yet.</p>
@@ -57,22 +63,20 @@
 @endsection
 
 @push('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="{{ asset('agos/agos_map.js') }}"></script>
     <script>
-        const city = L.latLngBounds([15.130, 120.490], [15.300, 120.670]);
-        const map = L.map('pick', { maxBounds: city.pad(0.1), minZoom: 12 }).setView([15.2236, 120.5714], 13);
-        const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
-        L.tileLayer(esri + 'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 16, maxZoom: 19, attribution: 'Esri, &copy; OpenStreetMap contributors' }).addTo(map);
-        L.tileLayer(esri + 'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 16, maxZoom: 19 }).addTo(map);
-        let marker = null;
+        // The app's map; the spot = the map's center under the fixed pin.
         const lat = document.getElementById('lat'), lng = document.getElementById('lng'), hint = document.getElementById('pickhint');
-        function set(p) {
-            if (!city.contains(p)) { hint.textContent = 'That spot is outside Mabalacat.'; return; }
-            lat.value = p.lat.toFixed(6); lng.value = p.lng.toFixed(6);
-            marker ? marker.setLatLng(p) : marker = L.marker(p).addTo(map);
-            hint.textContent = 'Spot set. Tap again to move it.';
+        function set(la, lo) {
+            lat.value = la.toFixed(6); lng.value = lo.toFixed(6);
+            hint.textContent = 'Spot set. Drag the map to move it.';
         }
-        map.on('click', e => set(e.latlng));
-        if (lat.value) set(L.latLng(+lat.value, +lng.value));
+        agosMap.load().then(() => {
+            const start = lat.value ? [+lng.value, +lat.value] : [120.5714, 15.2236];
+            agosMap.create(document.getElementById('pick'), JSON.stringify({
+                theme: 'dark', interactive: true, minZoom: 13, fit: false, center: start, zoom: lat.value ? 16 : 14,
+                bounds: [[120.490, 15.130], [120.670, 15.300]],
+            }), { onPinTap: () => {}, onCamera: () => {}, onMoveEnd: (la, lo) => set(la, lo), onReady: () => {} });
+        });
     </script>
 @endpush

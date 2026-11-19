@@ -8,7 +8,10 @@ use App\Http\Controllers\RescueController;
 use Illuminate\Support\Facades\Route;
 
 // ------------------------------------------------- everyone (guests too)
-Route::get('/', [PageController::class, 'home'])->name('home');
+// The landing page (copied from the Flutter repo by tools/copy-from-flutter.sh)
+// is the front page, like the real site; the app's pages start at /weather.
+Route::get('/', fn () => response()->file(public_path('landing.html')))->name('landing');
+Route::get('/weather', [PageController::class, 'home'])->name('home');
 Route::get('/map', [PageController::class, 'map'])->name('map');
 Route::get('/help', [PageController::class, 'help'])->name('help');
 Route::get('/alerts', [PageController::class, 'alerts'])->name('alerts');

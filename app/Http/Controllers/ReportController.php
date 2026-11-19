@@ -77,7 +77,7 @@ class ReportController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
             'photo' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
         ], [
-            'latitude.required' => 'Tap the map to set where the flooding is.',
+            'latitude.required' => 'Drag the map so the pin sits where the flooding is.',
             'latitude.between' => 'The spot must be inside Mabalacat.',
             'longitude.between' => 'The spot must be inside Mabalacat.',
         ]);
