@@ -1,8 +1,23 @@
-# AgosAlert (Laravel build)
+# AgosAlert (Laravel website)
 
-The Laravel + Blade version of AgosAlert, the flood-watch app for Mabalacat City.
-It uses the **same Supabase database and accounts** as the Flutter app
-(github.com/adriantulabut5747/AgosAlert), so a report posted in one shows in the other.
+The Laravel + Blade version of AgosAlert, the flood-watch app for Mabalacat City, Pampanga.
+
+**Live site (Flutter build, same data):** https://adriantulabut5747.github.io/AgosAlert/
+**Live app:** https://adriantulabut5747.github.io/AgosAlert/app/
+**Flutter app repo:** https://github.com/adriantulabut5747/agosalertapp
+**This website:** not hosted online yet (GitHub Pages can't run PHP). Run it locally, below.
+
+> Unofficial demo. AgosAlert is a school capstone project by BSIT students. It is not made by, or connected to, the Mabalacat City government. For official warnings, follow PAGASA and the Mabalacat CDRRMO.
+
+It uses the **same Supabase database and accounts** as the Flutter app, so a report
+posted in one shows in the other.
+
+## Pages
+
+`/` landing page · `/weather` live weather + flood outlook · `/map` flood reports and
+evacuation centers · `/reports` the feed (post, vote) · `/help` SOS, hotlines, centers,
+rescue request · `/alerts` · `/login`, `/register` · `/admin` for admins (rescue requests,
+reports, alerts, centers, users).
 
 ## Run it (Windows)
 
