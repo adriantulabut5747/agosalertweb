@@ -70,7 +70,7 @@
                     @if ($me?->isAdmin())
                         <a href="{{ route('admin.index') }}"><i class="i" data-i="shield_lefthalf_fill"></i>Admin</a>
                     @endif
-                    <a href="https://adriantulabut5747.github.io/AgosAlert/privacy.html"><i class="i" data-i="info_circle_fill"></i>Privacy and terms</a>
+                    <a href="{{ asset('privacy.html') }}"><i class="i" data-i="info_circle_fill"></i>Privacy and terms</a>
                     <hr>
                     @if ($me)
                         <form method="POST" action="{{ route('logout') }}">

@@ -7,10 +7,10 @@ set -euo pipefail
 F=../AgosAlert
 P=public
 
-# 1. The landing page = this site's front page (/). Its "Open the app"
-#    buttons go to Laravel's /login and /weather instead of app/.
+# 1. The landing page's styles, scripts and images. The page itself is
+#    resources/views/landing.blade.php (website wording: "Log in", not
+#    "Open the app"), so it is NOT copied: edit it there.
 mkdir -p "$P/img" "$P/fonts"
-cp "$F/landing/index.html" "$P/landing.html"
 cp "$F/landing/landing.css" "$F/landing/landing.js" "$F/landing/tugak.js" "$F/landing/icons.css" \
    "$F/landing/privacy.html" "$F/landing/terms.html" "$F/landing/takedown.html" "$F/landing/legal.css" "$P/"
 cp "$F/landing/fonts/cupertino.woff" "$P/fonts/"

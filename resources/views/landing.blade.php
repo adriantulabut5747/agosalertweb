@@ -1,16 +1,11 @@
 <!DOCTYPE html>
-<!--
-  AgosAlert landing page. Plain HTML/CSS/JS, no build step.
-  The deploy workflow copies this folder to the site root and puts the
-  Flutter app in /app/. "Open the app" opens app/ (login screen) or
-  app/?as=guest (see lib/services/session.dart).
-
-  Nov 14 2026 redesign (reference: discord.com's landing page, darker):
-  a starry night sky, Tugak (the app's 3D toad) explaining every section
-  in a pose made for it (tools/tugak3d.py --poses), sections alternating
-  sides, barangay and photo marquees, more phone mockups. Dark only: the
-  stars don't work on the light theme.
--->
+{{--
+  AgosAlert landing page, Laravel build. Started as a copy of the Flutter
+  repo's landing/index.html (same CSS/JS/images, copied by
+  tools/copy-from-flutter.sh); the wording here is for this WEBSITE:
+  "Log in" instead of "Open the app", no app-store badges, pages not tabs.
+  Edit this file, not the Flutter one, for the Laravel site.
+--}}
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -62,7 +57,11 @@
           <a href="#barangays">Coverage</a>
           <a href="#faq">FAQ</a>
         </div>
-        <button class="btn btn-blue btn-sm" type="button" data-open-app>Open the app</button>
+        @if ($me)
+          <a class="btn btn-blue btn-sm" href="{{ route('home') }}" style="text-decoration:none">Go to Weather</a>
+        @else
+          <a class="btn btn-blue btn-sm" href="{{ route('login') }}" style="text-decoration:none">Log in</a>
+        @endif
       </nav>
 
       <div class="hero-grid">
@@ -73,12 +72,21 @@
           <h1 id="headline"><span>Know the flood</span> <span>before your</span> <span>street does.</span></h1>
           <p class="lede">Rain forecasts, neighbors' flood photos, and SOS for Mabalacat.</p>
           <div class="hero-cta">
-            <button class="btn btn-blue btn-lg" type="button" data-open-app>
-              <span class="ms" aria-hidden="true" data-i="arrow_right"></span>Open the app
-            </button>
-            <button class="btn btn-white btn-lg" type="button" data-guest>
-              <span class="ms" aria-hidden="true" data-i="eye_fill"></span>Try it as a guest
-            </button>
+            @if ($me)
+            <a class="btn btn-blue btn-lg" href="{{ route('home') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="arrow_right"></span>Go to Weather
+            </a>
+            <a class="btn btn-white btn-lg" href="{{ route('reports.create') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="camera_fill"></span>Report flooding
+            </a>
+          @else
+            <a class="btn btn-blue btn-lg" href="{{ route('login') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="person_fill"></span>Log in
+            </a>
+            <a class="btn btn-white btn-lg" href="{{ route('home') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="eye_fill"></span>Continue as guest
+            </a>
+          @endif
           </div>
         </section>
 
@@ -134,24 +142,7 @@
       </div>
 
       <div class="hero-foot">
-        <div class="stores">
-          <button class="store" type="button" data-store="Android">
-            <svg viewBox="0 0 24 26" width="18" height="20" aria-hidden="true">
-              <path fill="#00D7FE" d="M1.2.6C.9.9.8 1.4.8 2v22c0 .6.1 1.1.4 1.4L13.3 13.3z"/>
-              <path fill="#FFCE00" d="M17.3 17.4 13.3 13.3l4-4 4.8 2.7c1.4.8 1.4 2.1 0 2.9z"/>
-              <path fill="#FF3A44" d="M17.3 17.4 13.3 13.3 1.2 25.4c.4.5 1.2.5 2 .1z"/>
-              <path fill="#00F076" d="M17.3 9.3 3.2 1.2c-.8-.5-1.6-.4-2 .1l12.1 12.1z"/>
-            </svg>
-            <span class="store-text"><small>Coming soon on</small>Google Play</span>
-          </button>
-          <button class="store" type="button" data-store="iPhone">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.8-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.1-1.2 2.9-2.4.9-1.3 1.3-2.7 1.3-2.8 0 0-2.4-1-2.4-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/>
-            </svg>
-            <span class="store-text"><small>Coming soon on the</small>App Store</span>
-          </button>
-        </div>
-        <p class="notice"><span class="ms" aria-hidden="true" data-i="info_circle_fill"></span><span><strong>Unofficial demo.</strong> Not from the Mabalacat City government. A school capstone project.</span></p>
+                <p class="notice"><span class="ms" aria-hidden="true" data-i="info_circle_fill"></span><span><strong>Unofficial demo.</strong> Not from the Mabalacat City government. A school capstone project.</span></p>
       </div>
 
       <!-- For screen readers: the weather card above is hidden from them. -->
@@ -170,9 +161,9 @@
       <!-- ======================= THE APP, FOUR SCREENS ======================= -->
       <section class="sec tour" aria-labelledby="tour-title">
         <div class="sec-head center">
-          <p class="eyebrow">The app</p>
-          <h2 id="tour-title">Four tabs. That’s the whole app.</h2>
-          <p class="sec-lede">No menus, no maze. Everything you need in a flood sits one tap from the bottom bar.</p>
+          <p class="eyebrow">The website</p>
+          <h2 id="tour-title">Four pages. That’s the whole site.</h2>
+          <p class="sec-lede">No menus, no maze. Everything you need in a flood is one click away, on a computer or a phone.</p>
         </div>
         <ul class="parade" id="parade" role="list">
           <li class="pop">
@@ -189,7 +180,7 @@
           </li>
           <li class="pop">
             <div class="phone"><div class="screen"><div class="statusbar"><span class="sb-time">9:41</span><span class="sb-icons"></span></div><img class="shot" src="img/phone-help.webp" alt="The Help tab: hold-to-call SOS and hotlines" width="780" height="1590" loading="lazy"></div><span class="island"></span></div>
-            <p><b>Help</b>Hold SOS. Call a hotline.</p>
+            <p><b>Help</b>Tap SOS. Call a hotline.</p>
           </li>
         </ul>
         <!-- Phones only: two pages of two phones, a dot per page (landing.js). -->
@@ -277,7 +268,7 @@
         <div class="row-copy">
           <p class="sec-num"><span>03</span> Help &amp; hotlines</p>
           <h2 id="hot-title">Save these numbers before you need them.</h2>
-          <p class="sec-lede">Hold SOS to call 911. Find the nearest evacuation center. Or put all five hotlines in your phone with one tap, right now.</p>
+          <p class="sec-lede">Tap SOS to call 911. Find the nearest evacuation center. Or put all five hotlines in your phone with one tap, right now.</p>
 
           <!-- Same numbers as the app (kHotlines in lib/data/demo_data.dart). -->
           <ul class="hot-list" id="hotList">
@@ -391,15 +382,15 @@
             </details>
             <details>
               <summary>Is the data real?</summary>
-              <p>The weather and the flood outlook are live. They come from Open-Meteo (MET Norway or wttr.in when it’s down) and update every 15 minutes. Flood reports are real posts from users, not yet checked by an official. Alerts and evacuation centers are still sample data, marked SAMPLE in the app.</p>
+              <p>The weather and the flood outlook are live. They come from Open-Meteo (MET Norway or wttr.in when it’s down) and update every 15 minutes. Flood reports are real posts from users, not yet checked by an official. Alerts are posted by AgosAlert admins. Evacuation centers are still sample data, marked SAMPLE.</p>
             </details>
             <details>
-              <summary>Why isn’t it on Google Play or the App Store?</summary>
-              <p>AgosAlert is a web app for now, so it works in any browser without installing anything. Mobile versions are planned. Until then, you can add it to your home screen: in Chrome on Android, open the menu and tap <em>Add to Home screen</em>. On iPhone, tap <em>Share</em>, then <em>Add to Home Screen</em>.</p>
+              <summary>Is there a phone app?</summary>
+              <p>Yes. AgosAlert also comes as a Flutter app: <a href="https://adriantulabut5747.github.io/AgosAlert/app/" target="_blank" rel="noopener">open it here</a>. It uses the same accounts and the same database as this website, so a report you post on one shows up on the other.</p>
             </details>
             <details>
               <summary>Who is the toad?</summary>
-              <p>That’s Tugak, Kapampangan for frog. He reads the live weather in the app and tells you what to do first. On a high alert he skips the jokes.</p>
+              <p>That’s Tugak, Kapampangan for frog. He reads the live weather and tells you what to do first. On a high alert he skips the jokes.</p>
             </details>
           </div>
         </div>
@@ -418,12 +409,21 @@
         <p class="say say-end" data-side="center"><b>Tugak</b><span class="say-text">That’s the tour. Stay dry out there.</span></p>
         <h2 id="end-title">Check the sky before it checks you.</h2>
         <div class="hero-cta">
-          <button class="btn btn-blue btn-lg" type="button" data-open-app>
-            <span class="ms" aria-hidden="true" data-i="arrow_right"></span>Open the app
-          </button>
-          <button class="btn btn-white btn-lg" type="button" data-guest>
-            <span class="ms" aria-hidden="true" data-i="eye_fill"></span>Try it as a guest
-          </button>
+          @if ($me)
+            <a class="btn btn-blue btn-lg" href="{{ route('home') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="arrow_right"></span>Go to Weather
+            </a>
+            <a class="btn btn-white btn-lg" href="{{ route('reports.create') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="camera_fill"></span>Report flooding
+            </a>
+          @else
+            <a class="btn btn-blue btn-lg" href="{{ route('login') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="person_fill"></span>Log in
+            </a>
+            <a class="btn btn-white btn-lg" href="{{ route('home') }}" style="text-decoration:none">
+              <span class="ms" aria-hidden="true" data-i="eye_fill"></span>Continue as guest
+            </a>
+          @endif
         </div>
       </section>
     </main>

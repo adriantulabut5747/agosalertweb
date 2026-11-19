@@ -26,8 +26,8 @@
             <p class="small muted" style="text-align:center;margin:12px 0 0">
                 Your name, email and barangay make your account. What you report is public with your name for 14 days.
                 By creating an account you agree to the
-                <a href="https://adriantulabut5747.github.io/AgosAlert/terms.html">Terms</a> ·
-                <a href="https://adriantulabut5747.github.io/AgosAlert/privacy.html">Privacy Policy</a>
+                <a href="{{ asset('terms.html') }}">Terms</a> ·
+                <a href="{{ asset('privacy.html') }}">Privacy Policy</a>
             </p>
         </form>
         <p style="margin-top:18px" class="muted">Already in? <a href="{{ route('login') }}">Log in</a></p>
