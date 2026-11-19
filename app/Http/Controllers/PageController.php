@@ -83,7 +83,8 @@ class PageController extends Controller
         }
 
         return view('help', [
-            'hotlines' => AgosData::HOTLINES,
+            // 911 is the SOS button, so the list is the local numbers.
+            'hotlines' => array_values(array_filter(AgosData::HOTLINES, fn ($h) => $h[1] !== '911')),
             'centers' => $centers,
             'sample' => $centers->contains('is_sample', true),
             'barangays' => AgosData::BARANGAYS,

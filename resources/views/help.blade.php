@@ -39,7 +39,7 @@
     <p class="page-sub">Get help fast, and be ready before the rain</p>
 
     <div class="help">
-        {{-- SOS: hold to call 911 (the call sheet still asks first). --}}
+        {{-- SOS: hold to call 911 (a keyboard press still asks first). --}}
         <div class="card sos">
             <div class="sos-main">
                 <button class="sos-btn" type="button" id="sos" aria-label="SOS, call 911">
@@ -251,7 +251,7 @@
         b.addEventListener('click', function () { askCall(b.dataset.call, b.dataset.number, b.dataset.color); });
     });
 
-    // SOS: hold 1.4 s (the ring fills), then the call sheet.
+    // SOS: hold 1.4 s (the ring fills), then the dialer at once (the hold is the confirmation).
     (function () {
         var b = document.getElementById('sos'), title = document.getElementById('sos-title'), t0 = 0, raf = 0, ring = b.querySelector('.ring circle');
         function set(v) { ring.style.strokeDashoffset = 100 - v * 100; b.classList.toggle('holding', v > 0); b.style.setProperty('--hold', v);
@@ -259,7 +259,7 @@
         function tick() {
             var v = Math.min(1, (performance.now() - t0) / 1400);
             set(v);
-            if (v >= 1) { set(0); t0 = 0; askCall('National Emergency Hotline', '911', '#ff453a'); return; }
+            if (v >= 1) { set(0); t0 = 0; location.href = 'tel:911'; return; }
             raf = requestAnimationFrame(tick);
         }
         function down(e) { e.preventDefault(); t0 = performance.now(); raf = requestAnimationFrame(tick); }
