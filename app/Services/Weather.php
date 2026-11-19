@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Carbon\Carbon;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -12,8 +13,10 @@ use Illuminate\Support\Facades\Http;
  * requests and the same rules as the Flutter app (lib/services/weather.dart
  * MabalacatWeather._openMeteo, AirQuality; lib/widgets/tugak.dart for
  * Tugak's mood and line). Keep the two in sync.
- * Cached 10 minutes like the app's load(). Returns null when Open-Meteo
- * can't be reached: the page then says so (no made-up numbers).
+ * Cached 10 minutes like the app's load(). If Open-Meteo fails, MET Norway
+ * then wttr.in fill in (weather_backups.dart in the app); they send less,
+ * and what they lack is null / [] so the page hides it. Returns null only
+ * when all three fail: the page then says so (no made-up numbers).
  */
 class Weather
 {
@@ -23,9 +26,10 @@ class Weather
 
     public function now(): ?array
     {
-        return Cache::remember('weather.v3', 600, fn () => $this->fetch());
+        return Cache::remember('weather.v4', 600, fn () => $this->fetch());
     }
 
+    /** MabalacatWeather.fetch in the app: Open-Meteo, then MET Norway, then wttr.in. */
     private function fetch(): ?array
     {
         $at = ['latitude' => self::LAT, 'longitude' => self::LON, 'timezone' => 'Asia/Manila'];
@@ -52,12 +56,45 @@ class Weather
                 'current' => 'us_aqi,pm2_5,pm10',
             ]),
         ]);
+        $air = $res['air'] instanceof Response && $res['air']->ok() ? $res['air']->json('current') : null;
+        $air = $air && isset($air['us_aqi']) ? ['aqi' => (int) $air['us_aqi'], 'pm25' => (float) $air['pm2_5']] : null;
+        $now = now();
+        $sources = [
+            fn () => $this->openMeteo($res),
+            fn () => self::parseMetNorway(self::getJson('https://api.met.no/weatherapi/locationforecast/2.0/complete',
+                ['lat' => self::LAT, 'lon' => self::LON], ['User-Agent' => 'AgosAlert github.com/adriantulabut5747/agosalertweb']), $now),
+            fn () => self::parseWttr(self::getJson('https://wttr.in/'.self::LAT.','.self::LON, ['format' => 'j1']), $now),
+        ];
+        foreach ($sources as $source) {
+            try {
+                return $source() + ['air' => $air];
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return null;
+    }
+
+    /** getWeatherJson in the app: anything but a quick 200 throws, so fetch() moves on. */
+    private static function getJson(string $url, array $query, array $headers = []): array
+    {
+        $r = Http::timeout(6)->withHeaders($headers)->get($url, $query);
+        if ($r->status() !== 200) {
+            throw new \RuntimeException(parse_url($url, PHP_URL_HOST).' returned '.$r->status());
+        }
+
+        return $r->json();
+    }
+
+    private function openMeteo(array $res): array
+    {
         $main = $res['main'];
-        if (! $main instanceof \Illuminate\Http\Client\Response || ! $main->ok()) {
-            return null;
+        if (! $main instanceof Response || $main->status() !== 200) {
+            throw new \RuntimeException('Open-Meteo failed');
         }
         $j = $main->json();
-        $chance = $res['chance'] instanceof \Illuminate\Http\Client\Response && $res['chance']->ok()
+        $chance = $res['chance'] instanceof Response && $res['chance']->ok()
             ? self::averageChances($res['chance']->json()) : [];
         $n = fn (array $list, int $i) => $list[$i] ?? 0;
 
@@ -126,8 +163,6 @@ class Weather
             }
         }
 
-        $air = $res['air'] instanceof \Illuminate\Http\Client\Response && $res['air']->ok() ? $res['air']->json('current') : null;
-
         return [
             'temp' => (float) $cur['temperature_2m'],
             'feels' => (float) $cur['apparent_temperature'],
@@ -145,8 +180,204 @@ class Weather
             'past_rain' => $past,
             'days' => $days,
             'next2h' => $next2h,
-            'air' => $air && isset($air['us_aqi']) ? ['aqi' => (int) $air['us_aqi'], 'pm25' => (float) $air['pm2_5']] : null,
+            'source' => 'Open-Meteo',
         ];
+    }
+
+    /**
+     * Sunrise and sunset in Mabalacat on $day (Manila time), from NOAA's
+     * solar equations (within a minute or two). sunTimes() in the app.
+     */
+    public static function sunTimes(Carbon $day): array
+    {
+        $rad = M_PI / 180;
+        $lat = (float) self::LAT * $rad;
+        $g = 2 * M_PI / 365 * ($day->dayOfYear - 1); // how far through the year, as an angle
+        $eq = 229.18 * (0.000075 + 0.001868 * cos($g) - 0.032077 * sin($g) - 0.014615 * cos(2 * $g) - 0.040849 * sin(2 * $g));
+        $decl = 0.006918 - 0.399912 * cos($g) + 0.070257 * sin($g) - 0.006758 * cos(2 * $g) + 0.000907 * sin(2 * $g)
+            - 0.002697 * cos(3 * $g) + 0.00148 * sin(3 * $g);
+        $ha = acos(cos(90.833 * $rad) / (cos($lat) * cos($decl)) - tan($lat) * tan($decl)) / $rad;
+        // Minutes after UTC midnight -> Manila time (+480 min).
+        $at = fn (float $utcMin) => $day->copy()->startOfDay()->addSeconds((int) round(($utcMin + 480) * 60));
+
+        return [$at(720 - 4 * ((float) self::LON + $ha) - $eq), $at(720 - 4 * ((float) self::LON - $ha) - $eq)];
+    }
+
+    private static function isDay(Carbon $t): bool
+    {
+        [$rise, $set] = self::sunTimes($t);
+
+        return $t->gte($rise) && $t->lt($set);
+    }
+
+    /**
+     * parseMetNorway in the app. MET Norway (api.met.no): hourly for ~2.5
+     * days, then every 6 hours. No rain chance, gusts, visibility or past
+     * rain. Its UV is the clear-sky value (the most it can be).
+     */
+    public static function parseMetNorway(array $json, Carbon $now): array
+    {
+        $thisHour = $now->copy()->startOfHour();
+        $steps = [];
+        foreach ($json['properties']['timeseries'] as $s) {
+            $t = Carbon::parse($s['time'])->setTimezone('Asia/Manila');
+            if ($t->gte($thisHour)) {
+                $steps[] = [$t, $s['data']];
+            }
+        }
+        $hourly = [];
+        $days = [];
+        foreach ($steps as $i => [$t, $d]) {
+            $x = $d['instant']['details'];
+            $hour = $d['next_1_hours'] ?? null;
+            if ($hour && count($hourly) < 24) {
+                $hourly[] = [
+                    'time' => $t->format('Y-m-d\TH:i'),
+                    'temp' => (float) $x['air_temperature'],
+                    'chance' => null,
+                    'rain' => (float) $hour['details']['precipitation_amount'],
+                    'code' => self::metCode($hour),
+                    'is_day' => self::isDay($t),
+                    'humidity' => (int) round($x['relative_humidity']),
+                    'wind' => $x['wind_speed'] * 3.6, // m/s -> km/h
+                    'feels' => (float) $x['apparent_air_temperature'],
+                    'wind_dir' => (int) round($x['wind_from_direction']),
+                    'pressure' => (float) $x['air_pressure_at_sea_level'],
+                    'cloud' => (int) round($x['cloud_area_fraction']),
+                    'uv' => (float) $x['ultraviolet_index_clear_sky'],
+                    'visibility' => null,
+                ];
+            }
+            // Each step's rain block runs up to the next step: 1 h while the data is hourly, then 6 h.
+            // shortcut: a 6 h block counts for the day it starts in, though the 8 PM one ends at 2 AM; fine for a backup's daily totals.
+            $gap = isset($steps[$i + 1]) ? ($steps[$i + 1][0]->getTimestamp() - $t->getTimestamp()) / 3600 : 6;
+            $block = $gap <= 1 ? $hour : ($d['next_6_hours'] ?? null);
+            $key = $t->toDateString();
+            $days[$key] ??= ['max' => -INF, 'min' => INF, 'rain' => 0.0, 'code' => 0];
+            $temps = [$x['air_temperature']];
+            if ($block) {
+                $b = $block['details'];
+                $days[$key]['rain'] += $b['precipitation_amount'];
+                $temps[] = $b['air_temperature_max'] ?? $x['air_temperature'];
+                $temps[] = $b['air_temperature_min'] ?? $x['air_temperature'];
+                $days[$key]['code'] = max($days[$key]['code'], self::metCode($block));
+            }
+            $days[$key]['max'] = max($days[$key]['max'], ...$temps);
+            $days[$key]['min'] = min($days[$key]['min'], ...$temps);
+        }
+        if (count($hourly) < 24) {
+            throw new \RuntimeException('MET Norway: too few hours');
+        }
+        $daily = [];
+        // shortcut: today only covers the hours left (MET has no past), so today's high, low and rain can read lower than Open-Meteo's.
+        foreach (array_slice($days, 0, 5, true) as $date => $dd) {
+            [$rise, $set] = self::sunTimes(Carbon::parse($date));
+            $daily[] = ['date' => $date, 'max' => (float) $dd['max'], 'min' => (float) $dd['min'], 'chance' => null, 'rain' => (float) $dd['rain'],
+                'code' => $dd['code'], 'sunrise' => $rise->format('Y-m-d\TH:i'), 'sunset' => $set->format('Y-m-d\TH:i')];
+        }
+        $h = $hourly[0];
+
+        return [
+            'temp' => $h['temp'], 'feels' => $h['feels'], 'humidity' => $h['humidity'], 'wind' => $h['wind'], 'wind_dir' => $h['wind_dir'],
+            'gusts' => null, 'pressure' => $h['pressure'], 'clouds' => $h['cloud'], 'uv' => $h['uv'], 'visibility' => null,
+            'code' => $h['code'], 'is_day' => self::isDay($now), 'hourly' => $hourly, 'past_rain' => [], 'days' => $daily,
+            'next2h' => [], 'source' => 'MET Norway',
+        ];
+    }
+
+    /** MET Norway's symbol ("rainshowers_day") -> the WMO code the app uses. */
+    private static function metCode(array $block): int
+    {
+        $s = explode('_', $block['summary']['symbol_code'])[0];
+        if (str_contains($s, 'thunder')) {
+            return 95;
+        }
+
+        return match ($s) {
+            'clearsky' => 0, 'fair' => 1, 'partlycloudy' => 2, 'cloudy' => 3, 'fog' => 45,
+            'lightrain' => 61, 'rain' => 63, 'heavyrain' => 65,
+            'lightrainshowers' => 80, 'rainshowers' => 81, 'heavyrainshowers' => 82,
+            default => 71, // the rest are sleet and snow
+        };
+    }
+
+    /**
+     * parseWttr in the app. wttr.in (keyless, from WorldWeatherOnline): 3
+     * days in 3-hour blocks, every number a string, no past or 15-minute
+     * rain. Often overloaded: the last resort.
+     */
+    public static function parseWttr(array $json, Carbon $now): array
+    {
+        $thisHour = $now->copy()->startOfHour();
+        $hourly = [];
+        $daily = [];
+        foreach ($json['weather'] as $d) {
+            if ($d['date'] < $now->toDateString()) {
+                continue; // just after midnight wttr.in still starts at yesterday
+            }
+            $rise = Carbon::parse($d['date'].' '.$d['astronomy'][0]['sunrise']);
+            $set = Carbon::parse($d['date'].' '.$d['astronomy'][0]['sunset']);
+            $rain = 0.0;
+            $code = 0;
+            $chance = 0;
+            foreach ($d['hourly'] as $b) {
+                $bCode = self::wwoCode((int) $b['weatherCode']);
+                $rain += (float) $b['precipMM'];
+                $code = max($code, $bCode);
+                $chance = max($chance, (int) $b['chanceofrain']);
+                // shortcut: each hour gets its 3-hour block's values and a third of its rain; fine for a last-resort backup.
+                for ($k = 0; $k < 3; $k++) {
+                    $t = Carbon::parse($d['date'])->setTime(intdiv((int) $b['time'], 100) + $k, 0);
+                    if ($t->lt($thisHour) || count($hourly) == 24) {
+                        continue;
+                    }
+                    $hourly[] = [
+                        'time' => $t->format('Y-m-d\TH:i'),
+                        'temp' => (float) $b['tempC'],
+                        'chance' => (int) $b['chanceofrain'],
+                        'rain' => $b['precipMM'] / 3,
+                        'code' => $bCode,
+                        'is_day' => $t->gte($rise) && $t->lt($set),
+                        'humidity' => (int) $b['humidity'],
+                        'wind' => (float) $b['windspeedKmph'],
+                        'feels' => (float) $b['FeelsLikeC'],
+                        'wind_dir' => (int) $b['winddirDegree'],
+                        'pressure' => (float) $b['pressure'],
+                        'cloud' => (int) $b['cloudcover'],
+                        'uv' => (float) $b['uvIndex'],
+                        'visibility' => $b['visibility'] * 1000, // km -> m
+                    ];
+                }
+            }
+            $daily[] = ['date' => $d['date'], 'max' => (float) $d['maxtempC'], 'min' => (float) $d['mintempC'], 'chance' => $chance, 'rain' => $rain,
+                'code' => $code, 'sunrise' => $rise->format('Y-m-d\TH:i'), 'sunset' => $set->format('Y-m-d\TH:i')];
+        }
+        if (count($hourly) < 24) {
+            throw new \RuntimeException('wttr.in: too few hours');
+        }
+        $c = $json['current_condition'][0];
+        $today = $daily[0];
+
+        return [
+            'temp' => (float) $c['temp_C'], 'feels' => (float) $c['FeelsLikeC'], 'humidity' => (int) $c['humidity'],
+            'wind' => (float) $c['windspeedKmph'], 'wind_dir' => (int) $c['winddirDegree'], 'gusts' => null,
+            'pressure' => (float) $c['pressure'], 'clouds' => (int) $c['cloudcover'], 'uv' => (float) $c['uvIndex'],
+            'visibility' => $c['visibility'] * 1000, 'code' => self::wwoCode((int) $c['weatherCode']),
+            'is_day' => $now->gte($today['sunrise']) && $now->lt($today['sunset']),
+            'hourly' => $hourly, 'past_rain' => [], 'days' => $daily, 'next2h' => [], 'source' => 'wttr.in',
+        ];
+    }
+
+    /** WorldWeatherOnline's code (wttr.in) -> the WMO code the app uses. */
+    private static function wwoCode(int $c): int
+    {
+        return match ($c) {
+            113 => 0, 116 => 2, 119, 122 => 3, 143, 248, 260 => 45,
+            263, 266, 281, 284 => 51, 293, 296 => 61, 299, 302 => 63, 305, 308 => 65,
+            176, 353 => 80, // 176 = "patchy rain nearby"
+            356 => 81, 359 => 82, 200, 386, 389, 392, 395 => 95,
+            default => 71, // the rest are sleet, snow and ice
+        };
     }
 
     /** averageChances() in the app: the models' mean per hour, keyed by the hour it covers. */

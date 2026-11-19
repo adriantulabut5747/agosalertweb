@@ -44,7 +44,7 @@ Then open http://127.0.0.1:8000.
 | Controllers | `app/Http/Controllers`: Page (Weather, Map, Help, Alerts), Report, Rescue, Auth, Account (Settings), Admin |
 | Eloquent models | `app/Models`: AppUser, FloodReport, ReportVote, Alert, EvacuationCenter, RescueRequest, FlaggedNumber |
 | Middleware | `LoadMe` (who is logged in), `RequireLogin`, `RequireAdmin` |
-| Services | `SupabaseAuth` (log in / sign up / reset through Supabase Auth), `Weather` (Open-Meteo + the flood outlook rule) |
+| Services | `SupabaseAuth` (log in / sign up / reset through Supabase Auth), `Weather` (Open-Meteo, MET Norway and wttr.in as backups, + the flood outlook rule) |
 | Views | `resources/views` (Blade), styles in `public/css/app.css` |
 | Migration | `database/migrations/2026_11_19_000001_create_agosalert_tables.php` (the paper's Tables 14-22) |
 

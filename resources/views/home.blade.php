@@ -34,7 +34,7 @@
             $compassName = fn ($deg) => ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'][(int) round(($deg % 360) / 45) % 8];
             $feels = $w['feels'];
             $uv = (int) round($w['uv']);
-            $km = $w['visibility'] / 1000;
+            $km = $w['visibility'] === null ? null : $w['visibility'] / 1000; // MET Norway sends none: no cell then
             $later = $w['hourly'][3]['pressure'] ?? null;
             $dp = $later === null ? 0 : $later - $w['pressure'];
             $today = $w['days'][0];
@@ -48,8 +48,8 @@
                 $a <= 50 => 'Good', $a <= 100 => 'Moderate', $a <= 150 => 'Unhealthy for sensitive groups',
                 $a <= 200 => 'Unhealthy', $a <= 300 => 'Very unhealthy', default => 'Hazardous',
             };
-            $cells = [
-                ['wind', 'Wind', round($w['wind']), ' km/h', 'From '.$compass($w['wind_dir']).' · gusts '.round($w['gusts']),
+            $cells = array_filter([
+                ['wind', 'Wind', round($w['wind']), ' km/h', 'From '.$compass($w['wind_dir']).($w['gusts'] === null ? '' : ' · gusts '.round($w['gusts'])),
                     'Wind from the '.$compassName($w['wind_dir']).'. PAGASA raises Wind Signal No. 1 at 39-61 km/h: loose roofing and branches start to fly.'],
                 ['thermometer', 'Feels like', round($feels).'°', '', match (true) {
                     $feels >= 52 => 'Extreme danger', $feels >= 42 => 'Danger', $feels >= 33 => 'Extreme caution', $feels >= 27 => 'Caution', default => 'No heat risk',
@@ -60,13 +60,13 @@
                     'Sunburn strength (WHO scale). 3 and up: sunscreen and a hat. 8 and up: stay in the shade around midday.'],
                 ['smoke', 'Air quality', $air ? $air['aqi'] : '–', '', $air ? $aqiLabel($air['aqi']).' · PM2.5 '.number_format($air['pm25'], 1) : 'Unavailable right now',
                     'US EPA index from Open-Meteo model data, not a local sensor. 0-50 good, 51-100 moderate, over 100 unhealthy for sensitive groups.'],
-                ['eye', 'Visibility', $km >= 10 ? round($km) : number_format($km, 1), ' km', $km < 1 ? 'Fog' : ($km < 5 ? 'Mist or haze' : 'Clear view'),
+                $km === null ? null : ['eye', 'Visibility', $km >= 10 ? round($km) : number_format($km, 1), ' km', $km < 1 ? 'Fog' : ($km < 5 ? 'Mist or haze' : 'Clear view'),
                     'How far you can see clearly. Under 1 km counts as fog (WMO): drive slowly with your lights on.'],
                 ['gauge', 'Pressure', round($w['pressure']), ' hPa', $later === null ? 'Sea level' : ($dp >= 1 ? 'Rising next 3 h' : ($dp <= -1 ? 'Falling next 3 h' : 'Steady next 3 h')),
                     'Air pressure at sea level. A steady fall over a few hours often comes before a storm or typhoon.'],
                 [$sunLabel === 'Sunrise' ? 'sunrise' : 'sunset', $sunLabel, $sunAt->format('g:i A'), '', 'Daylight '.intdiv($daylight, 60).' h '.($daylight % 60).' m',
                     'If heavy rain is coming, travel in daylight: flood water on roads is much harder to judge in the dark.'],
-            ];
+            ]);
             // Rain, 48 hours (RainTotalsCard).
             $bars = array_merge($w['past_rain'], array_map(fn ($x) => [$x['time'], $x['rain']], $w['hourly']));
             $nowAt = count($w['past_rain']);
@@ -100,7 +100,7 @@
                         </div>
                     </div>
                     <div class="stats">
-                        <div><i class="i" data-i="umbrella_fill"></i><b>{{ $hr['chance'] }}%</b><span>Rain chance</span></div>
+                        @if ($hr['chance'] !== null)<div><i class="i" data-i="umbrella_fill"></i><b>{{ $hr['chance'] }}%</b><span>Rain chance</span></div>@endif
                         <div><i class="i" data-i="drop_fill"></i><b>{{ number_format($hr['rain'], 1) }} mm</b><span>Rain this hour</span></div>
                         <div><i class="i" data-i="cloud"></i><b>{{ $w['clouds'] }}%</b><span>Cloud cover</span></div>
                     </div>
@@ -130,7 +130,7 @@
             <div class="side">{!! $greeting !!}</div>
             <div class="card row" style="grid-column:1/-1">
                 <span class="tile gray"><i class="i" data-i="wifi_slash"></i></span>
-                <div class="grow"><b>Weather unavailable</b><div class="small muted">Open-Meteo can't be reached just now.</div></div>
+                <div class="grow"><b>Weather unavailable</b><div class="small muted">Check your internet connection.</div></div>
                 <a class="btn tint sm" href="{{ route('home') }}">Retry</a>
             </div>
         @endif
@@ -212,7 +212,7 @@
             @endif
         @endif
     </div>
-    <p class="wx-foot">Weather by Open-Meteo · Unofficial demo</p>
+    <p class="wx-foot">Weather by {{ $w['source'] ?? 'Open-Meteo' }} · Unofficial demo</p>
 
     {{-- The explain sheet for a Right now cell (showAppSheet). --}}
     <dialog class="sheet info-sheet" id="cell-sheet">
