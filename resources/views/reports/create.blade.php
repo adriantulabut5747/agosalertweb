@@ -51,8 +51,22 @@
             <label for="note">Note (optional)</label>
             <textarea id="note" name="note" maxlength="500" placeholder="e.g. Knee-deep near the bridge, cars can't pass">{{ old('note') }}</textarea>
 
-            <label for="photo">Photo (optional, up to 5 MB)</label>
-            <input id="photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+            {{-- _photoBox in the app: one box, two halves (camera | gallery); once
+                 picked, the photo with an x to remove it. --}}
+            <label>Photo (optional, but it helps)</label>
+            <input id="photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp" hidden>
+            <input id="photo-cam" type="file" accept="image/*" capture="environment" hidden>
+            <input id="photo-lib" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+            <div class="photobox" id="photobox">
+                <button type="button" onclick="document.getElementById('photo-cam').click()"><i class="i" data-i="camera"></i>Take photo</button>
+                <span class="vdiv"></span>
+                <button type="button" onclick="document.getElementById('photo-lib').click()"><i class="i" data-i="photo_on_rectangle"></i>Choose from gallery</button>
+            </div>
+            <div class="photopreview" id="photopreview" hidden>
+                <img id="photoimg" alt="Your photo">
+                <button type="button" id="photox" aria-label="Remove the photo"><i class="i" data-i="xmark"></i></button>
+            </div>
+            <p class="small muted" id="photonote" hidden style="margin:8px 0 0"></p>
 
             @if ($errors->any())
                 <ul class="errors">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
@@ -63,6 +77,41 @@
 @endsection
 
 @push('scripts')
+    <script>
+        // The picked photo (camera or gallery) is shrunk to 1600 px JPEG in the
+        // browser before upload, like the app's photo_web.dart: smaller on
+        // mobile data, and the GPS location the camera hid in the file is gone.
+        (function () {
+            var input = document.getElementById('photo'), box = document.getElementById('photobox'), prev = document.getElementById('photopreview'),
+                img = document.getElementById('photoimg'), note = document.getElementById('photonote');
+            function clear() { input.value = ''; prev.hidden = true; box.hidden = false; note.hidden = true; img.removeAttribute('src'); }
+            function pick(file) {
+                if (!file) return;
+                createImageBitmap(file).then(function (bmp) {
+                    var k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+                    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+                    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+                    bmp.close && bmp.close();
+                    c.toBlob(function (blob) {
+                        var dt = new DataTransfer();
+                        dt.items.add(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+                        input.files = dt.files;
+                        img.src = URL.createObjectURL(blob);
+                        prev.hidden = false; box.hidden = true;
+                    }, 'image/jpeg', 0.8);
+                }).catch(function () {
+                    clear();
+                    note.hidden = false;
+                    note.textContent = "Couldn't open that photo. Try another one, or a JPEG.";
+                });
+            }
+            ['photo-cam', 'photo-lib'].forEach(function (id) {
+                var el = document.getElementById(id);
+                el.addEventListener('change', function () { pick(el.files[0]); el.value = ''; });
+            });
+            document.getElementById('photox').addEventListener('click', clear);
+        })();
+    </script>
     <script src="{{ asset('agos/agos_map.js') }}"></script>
     <script>
         // The app's map; the spot = the map's center under the fixed pin.

@@ -23,11 +23,12 @@ class PageController extends Controller
     {
         $w = rescue(fn () => $weather->now(), null, false);
         $reports = rescue(fn () => FloodReport::active()->latest('created_at')->get(), collect(), false);
-        $alert = rescue(fn () => Alert::where('severity', 'high')->latest('created_at')->first(), null, false);
+        // The newest High alert (same 7 days as the bell): Tugak names it and
+        // drops the jokes, like newestHighAlert in the app.
+        $alert = rescue(fn () => Alert::where('severity', 'high')->where('created_at', '>', now()->subDays(7))->latest('created_at')->first(), null, false);
 
         return view('home', [
             'w' => $w,
-            'outlook' => $w ? Weather::outlook($w) : null,
             'reports' => $reports,
             'alert' => $alert,
         ]);
@@ -36,23 +37,32 @@ class PageController extends Controller
     /** Flood reports + evacuation centers on a map (FR-G2). */
     public function map()
     {
-        $reports = rescue(fn () => FloodReport::active()->get(), collect(), false);
+        $reports = rescue(fn () => FloodReport::active()->with('user')->get(), collect(), false);
         $centers = rescue(fn () => EvacuationCenter::orderBy('name')->get(), collect(), false);
 
         return view('map', [
-            'reports' => $reports->map(fn ($r) => [
+            // Deepest first, reports without a depth last (the app's _zones).
+            'reports' => $reports->sortByDesc(fn ($r) => $r->depth_cm ?? -1)->map(fn ($r) => [
                 'id' => $r->report_id,
                 'lat' => $r->latitude,
                 'lng' => $r->longitude,
                 'type' => ucfirst($r->incident_type),
                 'barangay' => $r->barangay,
                 'depth' => $r->depth_cm,
+                'level' => $r->depth_cm === null ? null : ucfirst(AgosData::depthLabel($r->depth_cm)),
                 'risk' => $r->risk(),
                 'photo' => $r->photo_url,
                 'note' => $r->note,
+                'by' => $r->user?->full_name,
+                'updated' => AgosData::timeAgo($r->created_at),
+                'taken' => $r->photo_taken_at?->format('D, M j, g:i A'),
+                'takenAgo' => $r->photo_taken_at ? AgosData::timeAgo($r->photo_taken_at) : null,
+                'leftHours' => max(0, (int) now()->diffInHours($r->expires_at)),
             ])->values(),
             'centers' => $centers->map(fn ($c) => [
                 'name' => $c->name,
+                'icon' => AgosData::centerIcon($c->name),
+                'distance' => ($d = AgosData::distanceKm(request()->attributes->get('me')?->barangay, $c->latitude, $c->longitude)) === null ? '' : number_format($d, 1).' km',
                 'lat' => $c->latitude,
                 'lng' => $c->longitude,
                 'status' => $c->status,
@@ -93,5 +103,21 @@ class PageController extends Controller
         }
 
         return view('alerts', ['alerts' => $alerts, 'failed' => $failed]);
+    }
+
+    /** markAlertsRead in the app: alert_reads for users, the session for guests. */
+    public function alertsRead(Request $request)
+    {
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('ids', []))));
+        $me = $request->attributes->get('me');
+        if ($me && $ids) {
+            \Illuminate\Support\Facades\DB::connection('supabase')->table('alert_reads')->upsert(
+                array_map(fn ($id) => ['user_id' => $me->user_id, 'alert_id' => $id], $ids), ['user_id', 'alert_id'], [],
+            );
+        } elseif ($ids) {
+            $request->session()->put('read_alerts', array_values(array_unique([...$request->session()->get('read_alerts', []), ...$ids])));
+        }
+
+        return response()->noContent();
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PageController;
@@ -16,6 +17,7 @@ Route::get('/weather', [PageController::class, 'home'])->name('home');
 Route::get('/map', [PageController::class, 'map'])->name('map');
 Route::get('/help', [PageController::class, 'help'])->name('help');
 Route::get('/alerts', [PageController::class, 'alerts'])->name('alerts');
+Route::post('/alerts/read', [PageController::class, 'alertsRead'])->name('alerts.read')->middleware('throttle:30,1');
 Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 // Guests may ask for rescue too (FR-G8); max 3 a minute from one browser.
 Route::post('/help/rescue', [RescueController::class, 'store'])->name('rescue.store')->middleware('throttle:3,1');
@@ -27,6 +29,10 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('register
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 Route::post('/forgot-password', [AuthController::class, 'forgot'])->name('password.forgot')->middleware('throttle:3,1');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+// An account waiting to be deleted, just logged in: "Keep your account?"
+Route::get('/account/keep', [AccountController::class, 'showKeep'])->name('account.keep');
+Route::post('/account/keep', [AccountController::class, 'keep']);
+Route::post('/account/leave', [AccountController::class, 'leave'])->name('account.leave');
 
 // --------------------------------------------------- logged-in users
 Route::middleware('login.required')->group(function () {
@@ -34,6 +40,12 @@ Route::middleware('login.required')->group(function () {
     Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
     Route::post('/reports/{report}/vote', [ReportController::class, 'vote'])->name('reports.vote');
     Route::delete('/reports/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
+    Route::post('/reports/{report}/restore', [ReportController::class, 'restore'])->name('reports.restore');
+    Route::delete('/reports/{report}/forever', [ReportController::class, 'forever'])->name('reports.forever');
+    Route::get('/settings', [AccountController::class, 'settings'])->name('settings');
+    Route::post('/settings/name', [AccountController::class, 'name'])->name('settings.name');
+    Route::post('/settings/password', [AccountController::class, 'password'])->name('settings.password')->middleware('throttle:5,1');
+    Route::post('/settings/delete-account', [AccountController::class, 'destroy'])->name('settings.delete');
 });
 
 // ------------------------------------------------------- admins only

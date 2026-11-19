@@ -42,4 +42,10 @@ return [
         'key' => env('SUPABASE_KEY'),
     ],
 
+    // The Android app the landing page's store badges offer while the app
+    // isn't on Google Play / the App Store: the newest GitHub release,
+    // built by the Flutter repo's .github/workflows/build-apk.yml.
+    // Change it here (or APK_URL in .env) when the app moves.
+    'apk_url' => env('APK_URL', 'https://github.com/adriantulabut5747/agosalertapp/releases/latest/download/AgosAlert.apk'),
+
 ];

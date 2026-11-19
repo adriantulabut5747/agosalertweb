@@ -17,6 +17,74 @@ class AgosData
         'Sapang Biabas', 'Tabun',
     ];
 
+    /** Barangay centers [lat, lng] from OpenStreetMap (kBarangayPoints in the app). */
+    public const BARANGAY_POINTS = [
+        'Atlu-Bola' => [15.2355, 120.5823],
+        'Bical' => [15.1949, 120.6198],
+        'Bundagul' => [15.2273, 120.6095],
+        'Calumpang' => [15.2205, 120.5326],
+        'Macapagal Village' => [15.2104, 120.5361],
+        'Mangalit' => [15.2266, 120.5782],
+        'Marcos Village' => [15.2094, 120.5301],
+        'San Joaquin' => [15.2307, 120.5714],
+        'Santa Maria' => [15.2270, 120.5922],
+        'Santo Rosario' => [15.2155, 120.5789],
+        'Sapang Balen' => [15.2504, 120.6005],
+        'Cacutud' => [15.2381, 120.5715],
+        'Camachiles' => [15.1924, 120.5861],
+        'Dapdap' => [15.2245, 120.6127],
+        'Dau' => [15.1761, 120.5887],
+        'Dolores' => [15.2161, 120.5589],
+        'Duquit' => [15.1779, 120.6014],
+        'Lakandula' => [15.1727, 120.5846],
+        'Mabiga' => [15.2133, 120.5799],
+        'Mamatitang' => [15.2301, 120.5726],
+        'Mawaque' => [15.2088, 120.5914],
+        'Paralayunan' => [15.2327, 120.6144],
+        'Poblacion' => [15.2236, 120.5717],
+        'San Francisco' => [15.2177, 120.5786],
+        'Santa Ines' => [15.2238, 120.5787],
+        'Sapang Biabas' => [15.1988, 120.6026],
+        'Tabun' => [15.2477, 120.5659],
+    ];
+
+    /** timeAgo() in the app: Just now, 5m ago, 3h ago, 2d ago. */
+    public static function timeAgo(\Carbon\CarbonInterface $t): string
+    {
+        $m = (int) $t->diffInMinutes(now());
+
+        return match (true) {
+            $m < 1 => 'Just now', $m < 60 => "{$m}m ago", $m < 1440 => intdiv($m, 60).'h ago', default => intdiv($m, 1440).'d ago',
+        };
+    }
+
+    /** EvacuationCenter.icon in the app: by what the place is. */
+    public static function centerIcon(string $name): string
+    {
+        $n = strtolower($name);
+
+        return match (true) {
+            str_contains($n, 'school') => 'book_fill',
+            str_contains($n, 'sports') || str_contains($n, 'gym') => 'sportscourt_fill',
+            str_contains($n, 'hall') => 'building_2_fill',
+            default => 'house_alt_fill',
+        };
+    }
+
+    /** Straight-line km from the center of [barangay], or null (no made-up numbers). */
+    public static function distanceKm(?string $barangay, float $lat, float $lng): ?float
+    {
+        $from = self::BARANGAY_POINTS[$barangay ?? ''] ?? null;
+        if (! $from) {
+            return null;
+        }
+        [$la, $lo] = array_map('deg2rad', $from);
+        [$lb, $lob] = [deg2rad($lat), deg2rad($lng)];
+        $h = sin(($lb - $la) / 2) ** 2 + cos($la) * cos($lb) * sin(($lob - $lo) / 2) ** 2;
+
+        return 6371.0 * 2 * asin(sqrt($h));
+    }
+
     /** Real hotlines (same as kHotlines in the app). */
     public const HOTLINES = [
         ['National Emergency Hotline', '911', 'Emergency'],

@@ -29,7 +29,9 @@ class AdminController extends Controller
             'tab' => $tab,
             'requests' => $tab === 'rescue' ? RescueRequest::latest('created_at')->take(200)->get() : collect(),
             'flagged' => $tab === 'rescue' ? FlaggedNumber::pluck('phone_number')->all() : [],
-            'reports' => $tab === 'reports' ? FloodReport::with('user')->where('expires_at', '>', now())->latest('created_at')->get() : collect(),
+            // Live ones first, then the trash (every row left is one or the other).
+            'reports' => $tab === 'reports' ? FloodReport::with('user')->latest('created_at')->get()
+                ->sortBy(fn ($r) => $r->inTrash())->values() : collect(),
             'alerts' => $tab === 'alerts' ? Alert::latest('created_at')->get() : collect(),
             'centers' => $tab === 'centers' ? EvacuationCenter::orderBy('name')->get() : collect(),
             'users' => $tab === 'users' ? AppUser::latest('created_at')->get() : collect(),
@@ -77,18 +79,12 @@ class AdminController extends Controller
         return back()->with('ok', 'Report '.$status.'.');
     }
 
+    /** Admins' delete goes to the trash too; only an admin can restore it. */
     public function reportDelete(Request $request, FloodReport $report)
     {
-        $report->delete();
-        if ($report->photo_url && str_contains($report->photo_url, '/report-photos/')) {
-            // 08_admin.sql lets admins delete any report photo.
-            Http::withToken((string) $request->session()->get('supabase_token'))
-                ->withHeaders(['apikey' => config('services.supabase.key')])
-                ->delete(config('services.supabase.url').'/storage/v1/object/report-photos/'
-                    .explode('/report-photos/', $report->photo_url)[1]);
-        }
+        AgosModel::asUser($this->me($request)->user_id, fn ($db) => $db->select('select public.trash_report(?)', [$report->report_id]));
 
-        return back()->with('ok', 'Report deleted for good.');
+        return back()->with(['ok' => 'Moved to the trash.', 'undo' => $report->report_id]);
     }
 
     // ---------------------------------------------------------- alerts

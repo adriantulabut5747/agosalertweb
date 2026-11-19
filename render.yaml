@@ -1,0 +1,46 @@
+# Render Blueprint: the live site, free plan (sleeps after 15 min idle,
+# ~1 min to wake). Secrets (sync: false) are typed into Render's dashboard.
+services:
+  - type: web
+    name: agosalert
+    runtime: docker
+    plan: free
+    region: singapore # next to Supabase (ap-southeast-1)
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: AgosAlert
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: 'false'
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: LOG_CHANNEL
+        value: stderr
+      # Render's disk is wiped on every sleep/deploy, so nothing is kept on it.
+      # shortcut: cookie sessions cap at 4 KB (token + flashed form fits today); move to a database session table if it grows.
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: SESSION_SECURE_COOKIE
+        value: 'true'
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: SUPABASE_URL
+        value: https://zhoenxifrazofjzwjljr.supabase.co
+      - key: SUPABASE_KEY
+        value: sb_publishable_ArcbNKJC3A3EsnAXuojO5g_6_5Cytfa
+      - key: SUPA_DB_HOST
+        value: aws-1-ap-southeast-1.pooler.supabase.com
+      - key: SUPA_DB_PORT
+        value: '5432'
+      - key: SUPA_DB_DATABASE
+        value: postgres
+      - key: SUPA_DB_USERNAME
+        value: postgres.zhoenxifrazofjzwjljr
+      - key: SUPA_DB_PASSWORD
+        sync: false

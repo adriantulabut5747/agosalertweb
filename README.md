@@ -16,8 +16,12 @@ posted in one shows in the other.
 
 `/` landing page · `/weather` live weather + flood outlook · `/map` flood reports and
 evacuation centers · `/reports` the feed (post, vote) · `/help` SOS, hotlines, centers,
-rescue request · `/alerts` · `/login`, `/register` · `/admin` for admins (rescue requests,
-reports, alerts, centers, users).
+rescue request · `/alerts` · `/login`, `/register` · `/settings` (name, password, Trash, delete account) ·
+`/admin` for admins (rescue requests, reports, alerts, centers, users).
+
+Deleting is soft, like the app: a report goes to a 30-day trash (restore from Settings > Trash),
+and "Delete account" waits 7 days; logging in during them asks "Keep your account?". The final
+erase is the Flutter repo's `purge` Edge Function (`supabase/09_trash.sql`).
 
 ## Run it (Windows)
 
@@ -37,7 +41,7 @@ Then open http://127.0.0.1:8000.
 | Part | Where |
 | --- | --- |
 | Routes (27) | `routes/web.php` |
-| Controllers | `app/Http/Controllers`: Page (Weather, Map, Help, Alerts), Report, Rescue, Auth, Admin |
+| Controllers | `app/Http/Controllers`: Page (Weather, Map, Help, Alerts), Report, Rescue, Auth, Account (Settings), Admin |
 | Eloquent models | `app/Models`: AppUser, FloodReport, ReportVote, Alert, EvacuationCenter, RescueRequest, FlaggedNumber |
 | Middleware | `LoadMe` (who is logged in), `RequireLogin`, `RequireAdmin` |
 | Services | `SupabaseAuth` (log in / sign up / reset through Supabase Auth), `Weather` (Open-Meteo + the flood outlook rule) |

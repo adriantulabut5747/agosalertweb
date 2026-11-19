@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Every page knows who is logged in ($me in the views).
         $middleware->web(append: [\App\Http\Middleware\LoadMe::class]);
+        // Render serves HTTPS in front of the app: trust its headers so links stay https://.
+        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'login.required' => \App\Http\Middleware\RequireLogin::class,
             'admin' => \App\Http\Middleware\RequireAdmin::class,

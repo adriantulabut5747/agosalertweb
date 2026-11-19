@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** One row of `users` (paper, Table 14). Made by Supabase's sign-up trigger. */
 class AppUser extends AgosModel
 {
+    /** Days between "Delete account" and the purge deleting it (kAccountDeleteDays). */
+    public const DELETE_DAYS = 7;
+
     protected $table = 'users';
 
     protected $primaryKey = 'user_id';
@@ -15,7 +18,7 @@ class AppUser extends AgosModel
 
     public $incrementing = false;
 
-    protected $casts = ['created_at' => 'datetime'];
+    protected $casts = ['created_at' => 'datetime', 'deletion_requested_at' => 'datetime'];
 
     public function floodReports(): HasMany
     {
@@ -30,6 +33,12 @@ class AppUser extends AgosModel
     public function isAdmin(): bool
     {
         return $this->role === 'admin' && $this->account_status === 'active';
+    }
+
+    /** When the account goes for good, if deletion was asked for. */
+    public function deletesAt(): ?\Carbon\CarbonInterface
+    {
+        return $this->deletion_requested_at?->copy()->addDays(self::DELETE_DAYS);
     }
 
     public function initials(): string

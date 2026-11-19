@@ -3,7 +3,8 @@
   AgosAlert landing page, Laravel build. Started as a copy of the Flutter
   repo's landing/index.html (same CSS/JS/images, copied by
   tools/copy-from-flutter.sh); the wording here is for this WEBSITE:
-  "Log in" instead of "Open the app", no app-store badges, pages not tabs.
+  "Log in" instead of "Open the app", pages not tabs, and the store
+  badges offer the APK download (#storeModal) instead of a toast.
   Edit this file, not the Flutter one, for the Laravel site.
 --}}
 <html lang="en">
@@ -142,7 +143,26 @@
       </div>
 
       <div class="hero-foot">
-                <p class="notice"><span class="ms" aria-hidden="true" data-i="info_circle_fill"></span><span><strong>Unofficial demo.</strong> Not from the Mabalacat City government. A school capstone project.</span></p>
+        <div class="stores">
+          {{-- Just badges: the app isn't in either store yet. A click opens
+               #storeModal (script at the bottom) with the APK instead. --}}
+          <button class="store" type="button" data-store="Google Play">
+            <svg viewBox="0 0 24 26" width="18" height="20" aria-hidden="true">
+              <path fill="#00D7FE" d="M1.2.6C.9.9.8 1.4.8 2v22c0 .6.1 1.1.4 1.4L13.3 13.3z"/>
+              <path fill="#FFCE00" d="M17.3 17.4 13.3 13.3l4-4 4.8 2.7c1.4.8 1.4 2.1 0 2.9z"/>
+              <path fill="#FF3A44" d="M17.3 17.4 13.3 13.3 1.2 25.4c.4.5 1.2.5 2 .1z"/>
+              <path fill="#00F076" d="M17.3 9.3 3.2 1.2c-.8-.5-1.6-.4-2 .1l12.1 12.1z"/>
+            </svg>
+            <span class="store-text"><small>Coming soon on</small>Google Play</span>
+          </button>
+          <button class="store" type="button" data-store="the App Store">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.8-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.1-1.2 2.9-2.4.9-1.3 1.3-2.7 1.3-2.8 0 0-2.4-1-2.4-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/>
+            </svg>
+            <span class="store-text"><small>Coming soon on the</small>App Store</span>
+          </button>
+        </div>
+        <p class="notice"><span class="ms" aria-hidden="true" data-i="info_circle_fill"></span><span><strong>Unofficial demo.</strong> Not from the Mabalacat City government. A school capstone project.</span></p>
       </div>
 
       <!-- For screen readers: the weather card above is hidden from them. -->
@@ -482,6 +502,37 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <!-- Store badges -> "coming soon" + the APK (same .modal look as the
+       login popup). -->
+  <dialog class="modal" id="storeModal" aria-labelledby="storeTitle" aria-describedby="storeSub">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" type="button" aria-label="Close" onclick="this.closest('dialog').close()">
+        <span class="ms" aria-hidden="true" data-i="xmark"></span>
+      </button>
+      <img class="modal-logo" src="img/logo_icon_dark.png" alt="" width="56" height="56">
+      <h2 id="storeTitle">Coming soon</h2>
+      <p class="modal-sub" id="storeSub">AgosAlert isn't on Google Play or the App Store yet. Download our APK instead: the full app for Android phones, free.</p>
+      <a class="btn btn-blue btn-lg store-dl" href="{{ config('services.apk_url') }}" download>
+        <span class="ms" aria-hidden="true" data-i="arrow_down"></span> Download the APK
+      </a>
+      <p class="store-note">Android only. Your phone may ask you to allow installs from your browser. On an iPhone, use the <a href="{{ route('home') }}">website</a>.</p>
+    </div>
+  </dialog>
+  <script>
+    // Capture phase, so landing.js's own "coming soon" toast on .store
+    // (shared with the Flutter landing) never fires here.
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.store');
+      if (!b) return;
+      e.stopPropagation();
+      document.getElementById('storeTitle').textContent = 'Coming soon to ' + b.dataset.store;
+      document.getElementById('storeModal').showModal();
+    }, true);
+  </script>
+  <style>
+    .store-dl { width: 100%; gap: 10px; text-decoration: none; }
+    .store-note { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  </style>
   <script src="landing.js" defer></script>
   <!-- The live 3D Tugak. Loads three.js and his model from the app's
        folder (app/tugak/, web/tugak/ in the repo), so there's one copy.

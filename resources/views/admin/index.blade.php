@@ -68,21 +68,42 @@
                             @if ($r->photo_url)<a class="small" href="{{ $r->photo_url }}" target="_blank" rel="noopener">Photo</a>@endif
                         </td>
                         <td>{{ $r->user?->full_name ?? 'Deleted account' }}</td>
-                        <td><span class="tag {{ ['verified' => 'green', 'removed' => '', 'unverified' => 'amber'][$r->status] }}">{{ $r->status }}</span></td>
+                        <td>
+                            @if ($r->inTrash())
+                                <span class="tag">In trash</span>
+                                <div class="small muted" style="margin-top:4px">{{ $r->deleted_at ? 'Deleted' : 'Expired' }} · erased {{ $r->erasesAt()->format('M j') }}</div>
+                            @else
+                                <span class="tag {{ ['verified' => 'green', 'removed' => '', 'unverified' => 'amber'][$r->status] }}">{{ $r->status }}</span>
+                            @endif
+                        </td>
                         <td>
                             <div class="row">
-                                @foreach (['verified' => 'Verify', 'removed' => 'Hide', 'unverified' => 'Reset'] as $s => $label)
-                                    @if ($r->status !== $s)
-                                        <form class="inline" method="POST" action="{{ route('admin.reports.status', $r) }}">
-                                            @csrf <input type="hidden" name="status" value="{{ $s }}">
-                                            <button class="btn small gray" type="submit">{{ $label }}</button>
+                                @if ($r->inTrash())
+                                    @if ($r->canRestore($me))
+                                        <form class="inline" method="POST" action="{{ route('reports.restore', $r) }}">
+                                            @csrf <button class="btn small gray" type="submit">Restore</button>
                                         </form>
                                     @endif
-                                @endforeach
-                                <form class="inline" method="POST" action="{{ route('admin.reports.delete', $r) }}" onsubmit="return confirm('Delete this report and its photo for good?')">
-                                    @csrf @method('DELETE')
-                                    <button class="btn small red" type="submit">Delete</button>
-                                </form>
+                                    <form class="inline" method="POST" action="{{ route('reports.forever', $r) }}" data-confirm-title="Delete it now?"
+                                          data-confirm-text="The report, its photo and its votes are erased for good, without waiting for the trash." data-confirm-button="Delete now">
+                                        @csrf @method('DELETE')
+                                        <button class="btn small red" type="submit">Delete now</button>
+                                    </form>
+                                @else
+                                    @foreach (['verified' => 'Verify', 'removed' => 'Hide', 'unverified' => 'Reset'] as $s => $label)
+                                        @if ($r->status !== $s)
+                                            <form class="inline" method="POST" action="{{ route('admin.reports.status', $r) }}">
+                                                @csrf <input type="hidden" name="status" value="{{ $s }}">
+                                                <button class="btn small gray" type="submit">{{ $label }}</button>
+                                            </form>
+                                        @endif
+                                    @endforeach
+                                    <form class="inline" method="POST" action="{{ route('admin.reports.delete', $r) }}" data-confirm-title="Delete this report?"
+                                          data-confirm-text="It goes to the trash: hidden from everyone, erased with its photo after 30 days. Only an admin can restore it.">
+                                        @csrf @method('DELETE')
+                                        <button class="btn small red" type="submit">Delete</button>
+                                    </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

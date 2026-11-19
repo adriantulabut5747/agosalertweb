@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppUser;
 use App\Services\SupabaseAuth;
 use App\Support\AgosData;
 use Illuminate\Http\Request;
@@ -31,6 +32,12 @@ class AuthController extends Controller
             return back()->withInput($request->only('email'))->with('error', $e->getMessage());
         }
         $request->session()->regenerate(); // new session id after login
+        // Waiting to be deleted (Settings > Delete account): ask first.
+        if (rescue(fn () => AppUser::find($id)?->deletion_requested_at, null, false)) {
+            $request->session()->put(['pending_user_id' => $id, 'supabase_token' => $token]);
+
+            return redirect()->route('account.keep');
+        }
         $request->session()->put(['user_id' => $id, 'supabase_token' => $token]);
 
         return redirect()->intended(route('home'))->with('ok', 'Welcome back.');
@@ -46,13 +53,13 @@ class AuthController extends Controller
         $data = $request->validate([
             'full_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255'],
-            'password' => ['required', 'min:6', 'confirmed'],
+            'password' => ['required', 'min:6'], // no second password field, like the app
             'barangay' => ['required', Rule::in(AgosData::BARANGAYS)],
         ]);
         try {
             [$id, $token] = $auth->signUp($data['full_name'], $data['email'], $data['password'], $data['barangay']);
         } catch (RuntimeException $e) {
-            return back()->withInput($request->except('password', 'password_confirmation'))->with('error', $e->getMessage());
+            return back()->withInput($request->except('password'))->with('error', $e->getMessage());
         }
         $request->session()->regenerate();
         $request->session()->put(['user_id' => $id, 'supabase_token' => $token]);

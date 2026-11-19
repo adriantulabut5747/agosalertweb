@@ -31,13 +31,26 @@ class LoadMe
                 $request->session()->flash('error', 'This account is suspended. Contact the AgosAlert admin.');
                 $me = null;
             }
+            // Waiting to be deleted: only a fresh login (which asks "Keep
+            // your account?") brings it back, never an old session.
+            if ($me?->deletion_requested_at) {
+                $request->session()->forget('user_id');
+                $me = null;
+            }
         }
         $request->attributes->set('me', $me);
         View::share('me', $me);
-        // The number on the bell: alerts from the last 7 days.
-        View::share('alertCount', rescue(
-            fn () => \App\Models\Alert::where('created_at', '>', now()->subDays(7))->count(), 0, false,
-        ));
+        // The bell's sheet (notifications.dart): every alert, newest first, and
+        // which ones this person has opened: alert_reads when logged in, the
+        // session for guests (the app keeps a guest's marks in memory).
+        $alerts = rescue(fn () => \App\Models\Alert::latest('created_at')->get(), collect(), false);
+        $read = $me
+            ? rescue(fn () => \Illuminate\Support\Facades\DB::connection('supabase')->table('alert_reads')
+                ->where('user_id', $me->user_id)->pluck('alert_id')->map(fn ($id) => (int) $id)->all(), [], false)
+            : $request->session()->get('read_alerts', []);
+        View::share('alerts', $alerts);
+        View::share('readAlerts', $read);
+        View::share('alertCount', $alerts->whereNotIn('alert_id', $read)->count());
 
         return $next($request);
     }

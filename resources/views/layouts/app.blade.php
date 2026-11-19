@@ -6,25 +6,29 @@
     <title>@yield('title', 'AgosAlert') · AgosAlert</title>
     <meta name="theme-color" content="#05060c">
     <link rel="icon" type="image/png" href="{{ asset('img/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=5">
+    {{-- The app's own font files (Inter + Inter Display, assets/fonts). --}}
+    <link rel="preload" href="{{ asset('fonts/Inter-Regular.ttf') }}" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="{{ asset('fonts/InterDisplay-Bold.ttf') }}" as="font" type="font/ttf" crossorigin>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=8">
     @stack('head')
 </head>
-<body>
+<body class="@yield('body_class')">
     <div class="night" aria-hidden="true"><i id="stars"></i></div>
 
     @php
         $tabs = [
-            ['home', 'Weather', 'cloud_sun_fill', 'i', 'nav_weather'],
-            ['map', 'Map', 'placemark_fill', 'i', 'nav_map'],
-            ['reports.index', 'Reports', 'doc_text_fill', 'i', 'nav_reports'],
-            ['help', 'Help', 'lifebuoy', 'ai', 'nav_help'],
+            // route, label, [outline, filled] icon (home_shell.dart _items), font, phone nav image
+            ['home', 'Weather', ['cloud_sun', 'cloud_sun_fill'], 'i', 'nav_weather'],
+            ['map', 'Map', ['map_pin', 'map_pin_fill'], 'ai', 'nav_map'],
+            ['reports.index', 'Reports', ['news', 'news_solid'], 'i', 'nav_reports'],
+            ['help', 'Help', ['lifebuoy', 'lifebuoy_fill'], 'ai', 'nav_help'],
         ];
         $on = fn ($r) => request()->routeIs($r === 'reports.index' ? 'reports.*' : $r);
     @endphp
 
+    {{-- Log in / sign up / keep account set @section('bare'): no top bar
+         or phone nav there, like the app's full-screen LoginScreen. --}}
+    @sectionMissing('bare')
     <header class="bar">
         <a class="logo" href="{{ route('home') }}" aria-label="AgosAlert home">
             <img src="{{ asset('img/logo_wordmark_dark.png') }}" alt="agosalert." width="146" height="33">
@@ -34,14 +38,15 @@
         <nav class="seg" aria-label="Main">
             @foreach ($tabs as [$route, $label, $icon, $font])
                 <a href="{{ route($route) }}" class="{{ $on($route) ? 'on' : '' }}">
-                    <i class="{{ $font }}" data-i="{{ $icon }}"></i>{{ $label }}
+                    <i class="{{ $font }}" data-i="{{ $icon[$on($route) ? 1 : 0] }}"></i>{{ $label }}
                 </a>
             @endforeach
         </nav>
         <div class="right">
-            <a class="round" href="{{ route('alerts') }}" aria-label="Alerts">
+            {{-- The bell opens the Notifications sheet; the number = unread alerts. --}}
+            <a class="round" href="{{ route('alerts') }}" aria-label="Notifications" data-open-notif>
                 <i class="i" data-i="bell"></i>
-                @if (($alertCount ?? 0) > 0)<span class="badge">{{ $alertCount }}</span>@endif
+                <span class="badge" @if (! ($alertCount ?? 0)) hidden @endif>{{ $alertCount ?? 0 }}</span>
             </a>
             <span class="vline"></span>
             <details class="menu">
@@ -66,7 +71,10 @@
                         @endif
                     </div>
                     <hr>
-                    <a href="{{ route('alerts') }}"><i class="i" data-i="bell_fill"></i>Alerts</a>
+                    <a href="{{ route('alerts') }}" data-open-notif><i class="i" data-i="bell_fill"></i>Notifications</a>
+                    @if ($me)
+                        <a href="{{ route('settings') }}"><i class="i" data-i="gear_alt_fill"></i>Settings</a>
+                    @endif
                     @if ($me?->isAdmin())
                         <a href="{{ route('admin.index') }}"><i class="i" data-i="shield_lefthalf_fill"></i>Admin</a>
                     @endif
@@ -84,24 +92,48 @@
             </details>
         </div>
     </header>
-
-    @if (session('ok') || session('error'))
-        <div class="flash">
-            @if (session('ok'))<div class="ok">{{ session('ok') }}</div>@endif
-            @if (session('error'))<div class="error">{{ session('error') }}</div>@endif
-        </div>
     @endif
+
+    {{-- Log in / sign up show errors as Tugak's line instead (auth-hello). --}}
+    @if (session('error'))
+        @sectionMissing('bare')
+        <div class="flash"><div class="error">{{ session('error') }}</div></div>
+        @endif
+    @endif
+    {{-- The app's snack bar: a 400 px pill at the bottom, gone after 4 s
+         (8 s with Undo, to give time to tap it). --}}
+    @if (session('ok'))
+        <div class="toast" id="toast" role="status">
+            <span>{{ session('ok') }}</span>
+            @if (session('undo'))
+                <form method="POST" action="{{ route('reports.restore', session('undo')) }}">
+                    @csrf <button type="submit">Undo</button>
+                </form>
+            @endif
+        </div>
+        <script>setTimeout(function () { document.getElementById('toast').classList.add('gone'); }, {{ session('undo') ? 8000 : 4000 }});</script>
+    @endif
+
+    {{-- The app's confirm sheet (showAppSheet: centered popup on wide
+         screens). Any form with data-confirm-title asks here first. --}}
+    <dialog class="sheet" id="confirm">
+        <span class="badge-lg red"><i class="i" data-i="trash_fill"></i></span>
+        <h3 id="confirm-title"></h3>
+        <p id="confirm-text"></p>
+        <button class="btn red wide" id="confirm-ok" type="button"></button>
+        <button class="btn gray wide" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+    </dialog>
 
     <main class="@yield('main_class')">
         @yield('content')
     </main>
 
-    <footer class="foot">
-        AgosAlert · Unofficial demo, not from the Mabalacat City government · BSIT capstone project ·
-        Weather: Open-Meteo.com · Map: © OpenStreetMap contributors, Esri
-    </footer>
+    {{-- No site-wide footer: like the app, each page names its own sources
+         (Weather: "Weather by Open-Meteo · Unofficial demo", the map: its
+         attribution control). --}}
 
     {{-- Phones: the floating glass pill (drawn icons from the app). --}}
+    @sectionMissing('bare')
     <nav class="pill" aria-label="Main">
         @foreach ($tabs as [$route, $label, , , $img])
             <a href="{{ route($route) }}" class="{{ $on($route) ? 'on' : '' }}" aria-label="{{ $label }}">
@@ -110,6 +142,7 @@
             </a>
         @endforeach
     </nav>
+    @endif
 
     <script>
         // Still stars, painted once (no animation loop: like the app).
@@ -120,11 +153,26 @@
             }
             document.getElementById('stars').style.boxShadow = out.join(',');
         })();
+        document.addEventListener('submit', function (e) {
+            var f = e.target, d = document.getElementById('confirm');
+            if (!f.dataset.confirmTitle || f.dataset.confirmed) return;
+            e.preventDefault();
+            document.getElementById('confirm-title').textContent = f.dataset.confirmTitle;
+            document.getElementById('confirm-text').textContent = f.dataset.confirmText || '';
+            var ok = document.getElementById('confirm-ok');
+            ok.textContent = f.dataset.confirmButton || 'Delete';
+            ok.onclick = function () { f.dataset.confirmed = '1'; d.close(); f.requestSubmit(); };
+            d.showModal();
+        });
         // Close the avatar menu when clicking elsewhere.
         document.addEventListener('click', function (e) {
             document.querySelectorAll('details.menu[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
         });
     </script>
+    @sectionMissing('bare')
+        @include('partials.notifications')
+        @include('partials.photo-viewer')
+    @endif
     @stack('scripts')
 </body>
 </html>

@@ -61,16 +61,43 @@ class SupabaseAuth
         $this->http()->post('/recover', ['email' => $email]);
     }
 
-    /** Plain words for Supabase's error codes (same ones the app maps). */
+    /** Settings > Password: needs a fresh token (logIn with the current password gives one). */
+    public function changePassword(string $token, string $password): void
+    {
+        $res = $this->http()->withToken($token)->put('/user', ['password' => $password]);
+        if (! $res->ok()) {
+            throw new RuntimeException($this->reason($res->json()));
+        }
+    }
+
+    /**
+     * Signs this login out on every device (the app's
+     * signOut(scope: global)). Best effort: an hour-old token is refused,
+     * and the app also drops a saved login of an account being deleted.
+     */
+    public function logOutEverywhere(string $token): void
+    {
+        rescue(fn () => $this->http()->withToken($token)->post('/logout?scope=global'), null, false);
+    }
+
+    /**
+     * Tugak's lines for Supabase's error CODES: tugakAuthLine() in the app
+     * (login_screen.dart). Fix first, then a dry joke; none for anything
+     * serious (a suspended account gets Supabase's own words).
+     */
     private function reason(?array $body): string
     {
         return match ($body['error_code'] ?? $body['code'] ?? null) {
-            'invalid_credentials' => 'Wrong email or password.',
-            'user_already_exists', 'email_exists' => 'That email already has an account. Log in instead.',
-            'weak_password' => 'That password is too easy to guess. Add numbers or symbols.',
-            'email_address_invalid', 'validation_failed' => 'That email doesn\'t look right.',
-            'over_request_rate_limit', 'over_email_send_rate_limit' => 'Too many tries. Wait a minute, then try again.',
-            default => $body['msg'] ?? $body['error_description'] ?? 'Couldn\'t reach the login server. Try again.',
+            'invalid_credentials' => "Wrong email or password. I'd let you in, but the door has standards.",
+            'user_already_exists', 'email_exists' => "That email already has an account. Log in instead, we've met.",
+            'weak_password' => 'That password is too easy to guess. Mix in numbers or symbols, make it work for it.',
+            'same_password' => "That's your current password. Pick a new one.",
+            'email_address_invalid', 'validation_failed' => "That email doesn't look right. Check for typos, I already squinted.",
+            'over_request_rate_limit', 'over_email_send_rate_limit' => "Too many tries in a row. Wait a minute, then try again. I'll hold your spot.",
+            'email_not_confirmed', 'confirm_email' => 'Confirm your email first: the link is in your inbox. Then log in here.',
+            'signup_disabled' => 'Sign-ups are closed for now. You can still look around as a guest.',
+            default => $body['msg'] ?? $body['error_description']
+                ?? "I can't reach the server. Check your connection and try again. It's not you, it's the Wi-Fi.",
         };
     }
 }

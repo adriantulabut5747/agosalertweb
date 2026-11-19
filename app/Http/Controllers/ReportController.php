@@ -13,7 +13,7 @@ use Throwable;
 
 /**
  * Flood reports: the feed (FR-G3), posting one (FR-R3), voting (FR-R4),
- * deleting your own. Same table and rules as the Flutter app
+ * the trash (09_trash.sql). Same table and rules as the Flutter app
  * (supabase/02_flood_reports.sql, 03_report_votes.sql).
  */
 class ReportController extends Controller
@@ -131,19 +131,44 @@ class ReportController extends Controller
         return back();
     }
 
-    /** Your own report only. */
+    /**
+     * Delete = move to the trash (supabase/09_trash.sql trash_report(),
+     * which checks owner-or-admin itself). The toast offers Undo.
+     */
     public function destroy(Request $request, FloodReport $report)
     {
         $me = $request->attributes->get('me');
-        abort_unless($report->user_id === $me->user_id || $me->isAdmin(), 403);
-        $report->delete();
-        if ($report->photo_url && str_contains($report->photo_url, '/report-photos/')) {
-            Http::withToken((string) $request->session()->get('supabase_token'))
-                ->withHeaders(['apikey' => config('services.supabase.key')])
-                ->delete(config('services.supabase.url').'/storage/v1/object/report-photos/'
-                    .explode('/report-photos/', $report->photo_url)[1]);
+        try {
+            AgosModel::asUser($me->user_id, fn ($db) => $db->select('select public.trash_report(?)', [$report->report_id]));
+        } catch (Throwable) {
+            return back()->with('error', 'Couldn\'t delete it. Try again.');
         }
 
-        return back()->with('ok', 'Report deleted.');
+        return back()->with(['ok' => 'Moved to the trash.', 'undo' => $report->report_id]);
+    }
+
+    /** Out of the trash: owners only what they deleted, admins any (restore_report()). */
+    public function restore(Request $request, FloodReport $report)
+    {
+        $me = $request->attributes->get('me');
+        try {
+            AgosModel::asUser($me->user_id, fn ($db) => $db->select('select public.restore_report(?)', [$report->report_id]));
+        } catch (Throwable) {
+            return back()->with(['error' => 'That report can\'t be restored any more.', 'open' => $request->input('open')]);
+        }
+
+        return back()->with(['ok' => 'Report restored.', 'open' => $request->input('open')]);
+    }
+
+    /** "Delete now" in the trash: row + photo, for good (02's delete rule: owner or admin). */
+    public function forever(Request $request, FloodReport $report)
+    {
+        $me = $request->attributes->get('me');
+        abort_unless($report->user_id === $me->user_id || $me->isAdmin(), 403);
+        if (! $report->eraseForGood((string) $request->session()->get('supabase_token'))) {
+            return back()->with(['error' => 'The photo couldn\'t be deleted. Log out and in again, then try again.', 'open' => $request->input('open')]);
+        }
+
+        return back()->with(['ok' => 'Deleted for good.', 'open' => $request->input('open')]);
     }
 }
