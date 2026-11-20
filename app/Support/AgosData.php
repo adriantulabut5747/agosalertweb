@@ -110,8 +110,9 @@ class AgosData
         'flagged_false' => 'Marked as false',
     ];
 
+    // No 'landslide' (Nov 20 2026, Adrian); the database still accepts it.
     public const INCIDENT_TYPES = [
-        'flooding', 'blocked road', 'landslide', 'fallen power line', 'stranded people', 'other',
+        'flooding', 'blocked road', 'fallen power line', 'stranded people', 'other',
     ];
 
     /** Water depth in body terms (lib/widgets/flood_depth.dart FloodLevel). */

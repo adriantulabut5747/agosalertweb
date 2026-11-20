@@ -50,7 +50,7 @@
             <div class="fieldlabel">What happened</div>
             <div class="chips" data-group="type">
                 <button type="button" class="selchip on" data-v="">Anything</button>
-                @foreach (array_diff($types, ['landslide']) as $t) {{-- no Landslide chip: nobody has posted one --}}
+                @foreach ($types as $t)
                     @php [$f, $ic] = AgosData::typeIcon($t); @endphp
                     <button type="button" class="selchip" data-v="{{ $t }}"><i class="{{ $f }}" data-i="{{ $ic }}"></i>{{ ucfirst($t) }}</button>
                 @endforeach
