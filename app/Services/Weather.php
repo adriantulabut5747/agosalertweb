@@ -140,6 +140,10 @@ class Weather
             $day = substr($t, 0, 10);
             $dayChance[$day] = max($dayChance[$day] ?? 0, $pct);
         }
+        // Today = this hour's chance, the same number as the live card (Adrian).
+        if ($hourly) {
+            $dayChance[substr($hourly[0]['time'], 0, 10)] = $hourly[0]['chance'];
+        }
         $d = $j['daily'];
         $days = [];
         foreach ($d['time'] as $i => $date) {
