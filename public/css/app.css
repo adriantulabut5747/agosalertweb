@@ -816,7 +816,9 @@ main.set { max-width: 664px; }
 .setrow { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 14px; border: 0; background: none; color: var(--text);
   font: inherit; text-align: left; cursor: default; }
 button.setrow { cursor: pointer; } button.setrow:active { transform: scale(.985); }
-.setrow + .setrow { border-top: 1px solid var(--edge); margin-left: 64px; width: calc(100% - 64px); padding-left: 0; }
+/* iOS inset divider: the line starts after the icon (14 + 36 + 14 px); the row itself stays put. */
+.setrow { position: relative; }
+.setrow + .setrow::before { content: ''; position: absolute; top: 0; left: 64px; right: 0; border-top: 1px solid var(--edge); }
 .setrow b { font-size: 15px; font-weight: 600; white-space: nowrap; }
 .setrow .val { flex: 1; min-width: 0; text-align: right; color: var(--muted); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setrow .chev { color: var(--muted); font-size: 16px; }
