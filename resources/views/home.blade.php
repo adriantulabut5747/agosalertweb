@@ -117,7 +117,8 @@
                             {{-- Rain/storm icon (51+) only at a 60%+ chance, else cloudy (3); same rule as Flutter's iconCode. --}}
                             @php $icon = $d['code'] >= 51 && ($d['chance'] ?? 100) < 60 ? 3 : $d['code']; @endphp
                             <span title="{{ Weather::describe($icon) }}">{!! Weather::glyph($icon) !!}</span>
-                            <span class="pct">{{ ($d['chance'] ?? 0) >= 20 ? $d['chance'].'%' : '' }}</span>
+                            {{-- Every day's chance (Adrian, Nov 20 2026): cyan from 20%, gray below; blank only when the source has none. --}}
+                            <span class="pct {{ ($d['chance'] ?? 0) < 20 ? 'low' : '' }}">{{ $d['chance'] === null ? '' : $d['chance'].'%' }}</span>
                             <span class="lo">{{ round($d['min']) }}°</span>
                             <span class="track">
                                 <i style="left:{{ $at($d['min']) * 100 }}%;right:{{ 100 - $at($d['max']) * 100 }}%;background:linear-gradient(90deg,{{ Weather::tempColor($d['min']) }},{{ Weather::tempColor($d['max']) }})"></i>

@@ -9,7 +9,7 @@
     {{-- The app's own font files (Inter + Inter Display, assets/fonts). --}}
     <link rel="preload" href="{{ asset('fonts/Inter-Regular.ttf') }}" as="font" type="font/ttf" crossorigin>
     <link rel="preload" href="{{ asset('fonts/InterDisplay-Bold.ttf') }}" as="font" type="font/ttf" crossorigin>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=9">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=10">
     @stack('head')
 </head>
 <body class="@yield('body_class')">
