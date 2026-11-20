@@ -114,7 +114,9 @@
                     @foreach ($w['days'] as $d)
                         <div class="d">
                             <span class="name">{{ $loop->first ? 'Today' : Carbon::parse($d['date'])->format('D') }}</span>
-                            <span title="{{ Weather::describe($d['code']) }}">{!! Weather::glyph($d['code']) !!}</span>
+                            {{-- Rain/storm icon (51+) only at a 60%+ chance, else cloudy (3); same rule as Flutter's iconCode. --}}
+                            @php($icon = $d['code'] >= 51 && ($d['chance'] ?? 100) < 60 ? 3 : $d['code'])
+                            <span title="{{ Weather::describe($icon) }}">{!! Weather::glyph($icon) !!}</span>
                             <span class="pct">{{ ($d['chance'] ?? 0) >= 20 ? $d['chance'].'%' : '' }}</span>
                             <span class="lo">{{ round($d['min']) }}°</span>
                             <span class="track">
